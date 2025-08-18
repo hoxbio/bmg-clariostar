@@ -1,0 +1,203 @@
+// in fl.go
+package bmg
+
+import (
+	"encoding/binary"
+	"fmt"
+)
+
+/*
+TODO:
+- Multichromatics (currently only 1), easy
+- Plate mode (currently endpoint only), need to implement injection system to justify kinetics
+- Spectral scan
+- Filter based (currently only monochrometer), easy
+- Time resolved
+- Fluorescence Polarization
+*/
+
+type FlCfg struct {
+	Ex           int  // excitation center wavelength
+	ExBw         int  // excitation bandwidith
+	Dich         int  // dichroic wavelength * 10
+	Em           int  // emission center wavelength
+	EmBw         int  // emission bandwidth
+	Gain         int  // gain
+	FocalHeight  int  // focal height (mm) * 100
+	Flashes      int  // number of flashes 0-200, 1-3 when using FlyingMode (off by default)
+	BottomOptic  bool // use bottom optic, defaults to top optic
+	SettlingTime int  // 0-10 deciseconds
+	OrbitAvg     int  // orbital averaging diameter (if > 0)
+}
+
+// Blocking run of a fluorescence assay configuration.
+func (c *Clario) RunFl(rc RunCfg, fl FlCfg) (FlData, error) {
+	cmd, err := flBytes(rc, fl)
+	if err != nil {
+		return FlData{}, err
+	}
+	c.setup()
+	c.waitForReady()
+	c.write(cmd)
+	c.waitForReady()
+	resp, err := c.write(getData)
+	if err != nil {
+		return FlData{}, err
+	}
+	r, err := unmarshalFlData(resp)
+	if err != nil {
+		return FlData{}, err
+	}
+	return r, nil
+
+}
+
+// Serialize the run configuration with the given fluorescence configuration
+func flBytes(rc RunCfg, fl FlCfg) ([]byte, error) {
+
+	// Flashes constraints
+	if rc.Plate.FlyingMode {
+		switch {
+		case rc.Plate.Rows*rc.Plate.Cols > 96 && fl.Flashes > 1:
+			return nil, fmt.Errorf("cannot do more than one flash in plate with >96 wells")
+		case fl.Flashes > 3:
+			return nil, fmt.Errorf("cannot do more than 3 flashes in flying mode")
+		}
+	}
+	if fl.Flashes > 200 {
+		return nil, fmt.Errorf("flashes per well must be ")
+	}
+
+	// Orbital averaging constraints
+	if fl.OrbitAvg > 0 {
+		switch {
+		case fl.OrbitAvg > rc.Plate.WellDia/100:
+			return nil, fmt.Errorf("cannot do orbital averaging > well diameter")
+		case fl.Flashes > fl.OrbitAvg*17:
+			return nil, fmt.Errorf("cannot do more than 17* orbital diameter flashes")
+		case rc.Plate.FlyingMode:
+			return nil, fmt.Errorf("cannot do orbital averaging with flying mode")
+		}
+	}
+
+	cmd := make([]byte, 0, 125)
+
+	pb, err := plateBytes(rc.Plate)
+	if err != nil {
+		return nil, err
+	}
+	cmd = append(cmd, pb...)
+
+	var d uint8
+	if fl.BottomOptic {
+		d |= 1 << 6
+	}
+	if fl.OrbitAvg > 0 {
+		d |= 1<<4 | 1<<5
+	}
+	cmd = append(cmd, d)
+
+	//cmd[65:68] always zero
+	cmd = append(cmd, 0x00, 0x00, 0x00)
+
+	sb, err := shakerBytes(rc.Shake)
+	if err != nil {
+		return nil, err
+	}
+	cmd = append(cmd, sb...)
+
+	// TODO UNKNOWN - maybe seperates optics?
+	// in orbital averaging 5 bytes are inserted immedietly after here
+	cmd = append(cmd, 0x27, 0x0F, 0x27, 0x0F)
+
+	if fl.OrbitAvg > 0 {
+		cmd = append(cmd, 0x03, byte(fl.OrbitAvg))
+		cmd = binary.BigEndian.AppendUint16(cmd, uint16(rc.Plate.WellDia))
+		cmd = append(cmd, 0x00)
+	}
+
+	if fl.SettlingTime == 0 {
+		cmd = append(cmd, 1)
+	} else {
+		cmd = append(cmd, uint8((fl.SettlingTime*10)/2))
+	}
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.FocalHeight))
+
+	// TODO multichromatic and filters
+	// 0x01 seems to be number of multichromats/filters
+	// when multichromats > 1 all but the last seems to have the gain and filter config
+	// plus 0x00,0x04,0x00,0x03 followed by 0x00 0x00 0x00 0x0c
+	cmd = append(cmd, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x0c)
+
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Gain))
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Ex*10+fl.ExBw))
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Ex*10-fl.ExBw))
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Dich))
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Em*10+fl.EmBw))
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Em*10-fl.EmBw))
+
+	// Probably something to do with the slits on the monochrometers? differ with filter measurement
+	// but not by which filter.
+	cmd = append(cmd, 0x00, 0x04, 0x00, 0x03)
+
+	if rc.PauseTime != 0 {
+		cmd = append(cmd, 0x01)
+	} else {
+		cmd = append(cmd, 0x00)
+	}
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(rc.PauseTime))
+
+	cmd = append(cmd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01)
+
+	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Flashes))
+	cmd = append(cmd, 0x00, 0x4b, 0x00, 0x00)
+
+	return cmd, nil
+}
+
+type FlData struct {
+	Total         int      // total number of values the run will produce
+	Complete      int      // number of completed measurements
+	Multichromats int      // number of multichromats used per well (currently 1 in fl)
+	Wells         int      // number of wells measured
+	Temp          float32  // the temperature of the incubator if enabled
+	Ovf           uint32   // overflow value
+	Vals          []uint32 // all values measured, in row major order
+}
+
+// read out the fl data
+func unmarshalFlData(resp []byte) (FlData, error) {
+
+	if len(resp) < 34 {
+		return FlData{}, fmt.Errorf("malformed data response, too short")
+	}
+
+	if resp[6] != 0x21 {
+		return FlData{}, fmt.Errorf("incorrect data response schema for discrete fl assay")
+	}
+
+	d := FlData{}
+	d.Total = int(binary.BigEndian.Uint16(resp[7:9]))
+	d.Complete = int(binary.BigEndian.Uint16(resp[9:11]))
+	d.Vals = make([]uint32, d.Complete)
+	d.Ovf = binary.BigEndian.Uint32(resp[11:15])
+
+	d.Multichromats = int(binary.BigEndian.Uint16(resp[16:18]))
+	d.Wells = int(binary.BigEndian.Uint16(resp[18:20]))
+	d.Temp = float32(binary.BigEndian.Uint16(resp[25:27]) / 10)
+
+	for i, j := 34, 0; j < d.Complete; {
+
+		// the resp is not large enough to contain more responses even though they are expected
+		if i+4 > len(resp) {
+			return FlData{}, fmt.Errorf("expected data, but received none")
+		}
+		d.Vals[j] = binary.BigEndian.Uint32(resp[i : i+4])
+
+		i += 4
+		j++
+	}
+
+	return d, nil
+
+}
