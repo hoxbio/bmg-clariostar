@@ -16,6 +16,7 @@ TODO:
 - Fluorescence Polarization
 */
 
+// FlCfg is used to confgiure an endpoint fluorescence run
 type FlCfg struct {
 	Ex           int  // excitation center wavelength
 	ExBw         int  // excitation bandwidith
@@ -30,7 +31,7 @@ type FlCfg struct {
 	OrbitAvg     int  // orbital averaging diameter (if > 0)
 }
 
-// Blocking run of a fluorescence assay configuration.
+// RunFl launches a fluorescence run, blocking
 func (c *Clario) RunFl(rc RunCfg, fl FlCfg) (FlData, error) {
 	cmd, err := flBytes(rc, fl)
 	if err != nil {
@@ -52,7 +53,7 @@ func (c *Clario) RunFl(rc RunCfg, fl FlCfg) (FlData, error) {
 
 }
 
-// Serialize the run configuration with the given fluorescence configuration
+// flBytes serializes the FlCfg and implements basic sanity checks
 func flBytes(rc RunCfg, fl FlCfg) ([]byte, error) {
 
 	// Flashes constraints
@@ -155,6 +156,7 @@ func flBytes(rc RunCfg, fl FlCfg) ([]byte, error) {
 	return cmd, nil
 }
 
+// Fldata holds all of the known fields from the plate reader response
 type FlData struct {
 	Total         int      // total number of values the run will produce
 	Complete      int      // number of completed measurements
@@ -165,7 +167,7 @@ type FlData struct {
 	Vals          []uint32 // all values measured, in row major order
 }
 
-// read out the fl data
+// unmarshalFlData populates a FlData from the plate reader response bytes
 func unmarshalFlData(resp []byte) (FlData, error) {
 
 	if len(resp) < 34 {

@@ -1,3 +1,5 @@
+//go:build linux
+
 package bmg
 
 import (
@@ -13,8 +15,9 @@ import (
 // but make the termios IOCTLs....
 // need ftdi_sio module to get serial interface to plate reader. The custom dev ID must be added.
 
-func openPort() (*os.File, error) {
-	fd, err := unix.Open("/dev/clario", unix.O_RDWR|unix.O_NOCTTY, 0)
+// openPort returns an *os.File
+func openPort(tty string) (*os.File, error) {
+	fd, err := unix.Open(tty, unix.O_RDWR|unix.O_NOCTTY, 0)
 	if err != nil {
 		return nil, fmt.Errorf("error opening file: %w", err)
 	}

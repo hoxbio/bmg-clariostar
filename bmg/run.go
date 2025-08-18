@@ -13,12 +13,14 @@ TODO:
 - Stacker?
 */
 
+// RunCfg holds plate reading modality agnostic configuration options for the run
 type RunCfg struct {
 	Plate     PlateCfg
 	Shake     ShakerCfg
 	PauseTime int // time (in seconds to pause)
 }
 
+// PlateCfg holds the configuration for plate geometry and measurement ordering, timing
 type PlateCfg struct {
 	Length      int      // plate length(mm) * 100, defaults to 127.76mm
 	Width       int      // plate length(mm) * 100, defaults to 85.48mm
@@ -44,7 +46,8 @@ const (
 	BottomRight Corner = 0b0111
 )
 
-// read the well at a given index starting from 0. Indexes are in row major order.
+// SetWells changes the default behavior of a PlateCfg from reading all wells in a plate to
+// reading the wells specified by idx. Idx is zero-based indexed in row major order.
 //
 // the plate encoding is 48 bytes (384 bit) where the bits encode if each well is going to
 // be read in row major order from byte 0 to byte 48 and bit 7 to bit 0. The first well is
@@ -60,7 +63,7 @@ func (p *PlateCfg) SetWells(idx ...int) error {
 	return nil
 }
 
-// Serialize the plate dimensions and read configuration
+// plateBytes serializes the plate configuration
 func plateBytes(pl PlateCfg) ([]byte, error) {
 	switch {
 	case pl.Length == 0, pl.Width == 0, pl.CornerX == 0, pl.CornerY == 0:
@@ -131,13 +134,15 @@ const (
 	Shake700
 )
 
+// ShakerCfg is used to configure the 'shaker' (xy stage) of the plate reader
+// at this point in time it is only used for shake-before functionality
 type ShakerCfg struct {
 	Shake    ShakeType  // what form of shaking
 	Speed    ShakeSpeed // what speed to shake
 	Duration int        // how long to shake (in seconds)
 }
 
-// serialize the shake-before configuration
+// ShakerBytes serializes the shaker configuration
 func shakerBytes(sh ShakerCfg) ([]byte, error) {
 	if sh.Shake == ShakeMeander && int(sh.Speed) > 2 {
 		return nil, fmt.Errorf("cannot do meander shake at > 300rpm")

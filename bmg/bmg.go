@@ -13,7 +13,7 @@ import (
 // |STX|Size(uint16)|NP|	Data	|Checksum(TCP)|CR|
 
 type Clario struct {
-	f io.ReadWriter
+	f io.ReadWriteCloser
 }
 
 // Flags present in plate reader status message
@@ -101,6 +101,7 @@ func frame(cmd []byte) []byte {
 	return buf
 }
 
+// write frames and writes the cmd to the plate reader and returns the unframed response
 func (c *Clario) write(cmd []byte) ([]byte, error) {
 
 	buf := frame(cmd)
@@ -112,8 +113,11 @@ func (c *Clario) write(cmd []byte) ([]byte, error) {
 }
 
 // Open connection to Clariostar
-func Init() (*Clario, error) {
-	f, err := openPort()
+//
+// If using the provided udev rules the tty will be /dev/clario on linux.
+func Open(tty string) (*Clario, error) {
+	// linux implementation is /dev/clario
+	f, err := openPort(tty)
 	if err != nil {
 		return nil, err
 	}
@@ -123,7 +127,12 @@ func Init() (*Clario, error) {
 	return c, nil
 }
 
-// infinitely polls status and prints bit fields and identified flags
+// Close closes the tty fd
+func (c *Clario) Close() {
+	c.f.Close()
+}
+
+// PollState infinitely polls status and prints bit fields and identified flags
 // used for perturbing system state to identify single bit flags
 func (c *Clario) PollState() {
 	var last []byte
@@ -150,7 +159,7 @@ func (c *Clario) PollState() {
 	}
 }
 
-// block until the busy flag is not raised
+// waitForReady blocks until the busy flag is not raised
 func (c *Clario) waitForReady() error {
 	var last []byte
 	for {
@@ -175,13 +184,14 @@ func (c *Clario) waitForReady() error {
 }
 
 // Status of Clariostar, currently only implements the single bit flags
+//
 // TODO: status has many bytes set durring a run that are yet to be RE'd
 // seems that spectral captures use a different schema following the bitfield
 type Status struct {
 	Flags []FlagID
 }
 
-// Get the status of the Clariostar
+// GetStatus requests an updated status from the plate reader and returns the result
 func (c *Clario) GetStatus() (Status, error) {
 	s := Status{}
 
@@ -197,7 +207,8 @@ func (c *Clario) GetStatus() (Status, error) {
 	return s, nil
 }
 
-// run initialization
+// Setup runs plate reader initialization
+//
 // moves the plate underneath optical stage and probes for presence detection
 func (c *Clario) setup() error {
 	_, err := c.write(initClario)
@@ -207,8 +218,8 @@ func (c *Clario) setup() error {
 	return nil
 }
 
-// Open the plate reader, blocking
-func (c *Clario) Open() error {
+// Opentray opens the plate tray, blocking
+func (c *Clario) OpenTray() error {
 	_, err := c.write(open)
 	if err != nil {
 		return err
@@ -221,8 +232,8 @@ func (c *Clario) Open() error {
 
 }
 
-// Close the plate reader, blocking
-func (c *Clario) Close() error {
+// CloseTray closes the plate tray, blocking
+func (c *Clario) CloseTray() error {
 	_, err := c.write(close)
 	if err != nil {
 		return err
@@ -243,7 +254,7 @@ var ErrFraming = errors.New("framing errror")
 // timeout in reading
 var ErrTimeout = errors.New("read timout")
 
-// read a data frame, timeout if duration has passed with os.ErrDeadlineExceeded
+// readFrame reads a data frame, timeout if duration has passed with os.ErrDeadlineExceeded
 // resultant bytes have the header, subsequent carriage return, checksum, and termination
 // byte stripped from the returned slice
 //

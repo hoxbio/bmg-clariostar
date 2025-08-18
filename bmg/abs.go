@@ -12,13 +12,14 @@ TODO:
 	(MCU memory limitation prob)
 */
 
-// Discrete absorbance assay using the monochrometer
+// DiscreteAbs holds the configuration for a discrete absorbance assay
 type DiscreteAbs struct {
 	Wavelengths  []int // discrete points to measure(nm, 200-1000), must be of length 1-8
 	Flashes      int   // number of flashes 0-200
 	SettlingTime int   // 0-10 deciseconds
 }
 
+// DiscreteAbsData holds all of the known fields from the plate reader response
 type DiscreteAbsData struct {
 	Total        int         // total number of values the run will produce
 	Complete     int         // number of completed measurements
@@ -29,7 +30,7 @@ type DiscreteAbsData struct {
 	Transmission [][]float32 // % transmission values, [well][wavelength] wells are row major order
 }
 
-// Run an absorbance assay
+// RunAbsDiscrete runs DiscreteAbs, blocking
 func (c *Clario) RunAbsDiscrete(rc RunCfg, abs DiscreteAbs) (DiscreteAbsData, error) {
 	cmd, err := absDiscreteBytes(rc, abs)
 	if err != nil {
@@ -51,6 +52,7 @@ func (c *Clario) RunAbsDiscrete(rc RunCfg, abs DiscreteAbs) (DiscreteAbsData, er
 
 }
 
+// absDiscreteBytes serializes the run command, implements sanity checks
 func absDiscreteBytes(rc RunCfg, abs DiscreteAbs) ([]byte, error) {
 	// sanity checks
 	if l := len(abs.Wavelengths); l == 0 || l > 8 {
@@ -113,11 +115,13 @@ func absDiscreteBytes(rc RunCfg, abs DiscreteAbs) ([]byte, error) {
 	return cmd, nil
 }
 
+// chromat holds the ADC range for a given chromat
 type chromat struct {
 	valHi float32
 	valLo float32
 }
 
+// unmarshalAbsData returns a DiscreteAbsData populated with known fields from plate reader response
 func unmarshalAbsData(resp []byte) (DiscreteAbsData, error) {
 
 	if len(resp) < 34 {
