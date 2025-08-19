@@ -18,17 +18,17 @@ TODO:
 
 // FlCfg is used to confgiure an endpoint fluorescence run
 type FlCfg struct {
-	Ex           int  // excitation center wavelength
-	ExBw         int  // excitation bandwidith
-	Dich         int  // dichroic wavelength * 10
-	Em           int  // emission center wavelength
-	EmBw         int  // emission bandwidth
-	Gain         int  // gain
-	FocalHeight  int  // focal height (mm) * 100
-	Flashes      int  // number of flashes 0-200, 1-3 when using FlyingMode (off by default)
-	BottomOptic  bool // use bottom optic, defaults to top optic
-	SettlingTime int  // 0-10 deciseconds
-	OrbitAvg     int  // orbital averaging diameter (if > 0)
+	Ex           int  `json:"ex"`            // excitation center wavelength
+	ExBw         int  `json:"ex_bw"`         // excitation bandwidith
+	Dich         int  `json:"dich"`          // dichroic wavelength * 10
+	Em           int  `json:"em"`            // emission center wavelength
+	EmBw         int  `json:"em_bw"`         // emission bandwidth
+	Gain         int  `json:"gain"`          // gain
+	FocalHeight  int  `json:"focal_height"`  // focal height (mm) * 100
+	Flashes      int  `json:"flashes"`       // number of flashes 0-200, 1-3 when using FlyingMode (off by default)
+	BottomOptic  bool `json:"bottom_optic"`  // use bottom optic, defaults to top optic
+	SettlingTime int  `json:"settling_time"` // 0-10 deciseconds
+	OrbitAvg     int  `json:"orbit_avg"`     // orbital averaging diameter (if > 0)
 }
 
 // RunFl launches a fluorescence run, blocking
@@ -158,13 +158,13 @@ func flBytes(rc RunCfg, fl FlCfg) ([]byte, error) {
 
 // Fldata holds all of the known fields from the plate reader response
 type FlData struct {
-	Total         int      // total number of values the run will produce
-	Complete      int      // number of completed measurements
-	Multichromats int      // number of multichromats used per well (currently 1 in fl)
-	Wells         int      // number of wells measured
-	Temp          float32  // the temperature of the incubator if enabled
-	Ovf           uint32   // overflow value
-	Vals          []uint32 // all values measured, in row major order
+	Total         int      `json:"total"`         // total number of values the run will produce
+	Complete      int      `json:"complete"`      // number of completed measurements
+	Multichromats int      `json:"multichromats"` // number of multichromats used per well (currently 1 in fl)
+	Wells         int      `json:"wells"`         // number of wells measured
+	Temp          float32  `json:"temp"`          // the temperature of the incubator if enabled
+	Ovf           uint32   `json:"ovf"`           // overflow value
+	Vals          []uint32 `json:"vals"`          // all values measured, in row major order
 }
 
 // unmarshalFlData populates a FlData from the plate reader response bytes

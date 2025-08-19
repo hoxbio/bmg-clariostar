@@ -15,26 +15,26 @@ TODO:
 
 // RunCfg holds plate reading modality agnostic configuration options for the run
 type RunCfg struct {
-	Plate     PlateCfg
-	Shake     ShakerCfg
-	PauseTime int // time (in seconds to pause)
+	Plate     PlateCfg  `json:"plate"`
+	Shake     ShakerCfg `json:"shake"`
+	PauseTime int       `json:"pause_time"` // time (in seconds to pause)
 }
 
 // PlateCfg holds the configuration for plate geometry and measurement ordering, timing
 type PlateCfg struct {
-	Length      int      // plate length(mm) * 100, defaults to 127.76mm
-	Width       int      // plate length(mm) * 100, defaults to 85.48mm
-	CornerX     int      // mm * 100 top left corner to center of well 0 along length(x)
-	CornerY     int      // mm * 100 top left corner to center of well 0 along width(y)
-	WellDia     int      // well diameter(mm) * 100
-	Cols        int      // number of columns in plate
-	Rows        int      // number of rows in plate
+	Length      int      `json:"length"`   // plate length(mm) * 100, defaults to 127.76mm
+	Width       int      `json:"width"`    // plate length(mm) * 100, defaults to 85.48mm
+	CornerX     int      `json:"corner_x"` // mm * 100 top left corner to center of well 0 along length(x)
+	CornerY     int      `json:"corner_y"` // mm * 100 top left corner to center of well 0 along width(y)
+	WellDia     int      `json:"well_dia"` // well diameter(mm) * 100
+	Cols        int      `json:"cols"`     // number of columns in plate
+	Rows        int      `json:"rows"`     // number of rows in plate
 	wells       [48]byte // set only by setWells, defaults to all wells
 	wSet        bool     // internal use, wells have been set.
-	StartCorner Corner   // which corner to begin measurements from
-	Uni         bool     // read wells in only one direction then return to origin edge
-	Vert        bool     // read vertically
-	FlyingMode  bool     // keeps stage moving, measures over well center, default off, not for abs
+	StartCorner Corner   `json:"start_corner"` // which corner to begin measurements from
+	Uni         bool     `json:"uni"`          // read wells in only one direction then return to origin edge
+	Vert        bool     `json:"vert"`         // read vertically
+	FlyingMode  bool     `json:"flying_mode"`  // keeps stage moving, measures over well center, default off, not for abs
 
 }
 type Corner uint8
@@ -137,9 +137,9 @@ const (
 // ShakerCfg is used to configure the 'shaker' (xy stage) of the plate reader
 // at this point in time it is only used for shake-before functionality
 type ShakerCfg struct {
-	Shake    ShakeType  // what form of shaking
-	Speed    ShakeSpeed // what speed to shake
-	Duration int        // how long to shake (in seconds)
+	Shake    ShakeType  `json:"shake"`    // what form of shaking
+	Speed    ShakeSpeed `json:"speed"`    // what speed to shake
+	Duration int        `json:"duration"` // how long to shake (in seconds)
 }
 
 // ShakerBytes serializes the shaker configuration

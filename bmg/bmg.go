@@ -37,9 +37,9 @@ const (
 
 // Flag represents a named status flag with its bitmask
 type Flag struct {
-	ID   FlagID
-	Mask byte
-	Byte int
+	ID   FlagID `json:"id"`
+	Mask byte   `json:"mask"`
+	Byte int    `json:"byte"`
 }
 
 // Define status flag loci
@@ -188,7 +188,7 @@ func (c *Clario) waitForReady() error {
 // TODO: status has many bytes set durring a run that are yet to be RE'd
 // seems that spectral captures use a different schema following the bitfield
 type Status struct {
-	Flags []FlagID
+	Flags []FlagID `json:"flags"`
 }
 
 // GetStatus requests an updated status from the plate reader and returns the result
