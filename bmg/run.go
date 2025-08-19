@@ -20,21 +20,26 @@ type RunCfg struct {
 	PauseTime int       `json:"pause_time"` // time (in seconds to pause)
 }
 
+// WellCfg obfuscates the encoding of the plate reading configuration
+//
+// It encodes for wells as a single bit in row major, MSB first order.
+// It is recomended to use SetWells as that takes the traditional row major well idx
+type WellCfg [48]byte
+
 // PlateCfg holds the configuration for plate geometry and measurement ordering, timing
 type PlateCfg struct {
-	Length      int      `json:"length"`   // plate length(mm) * 100, defaults to 127.76mm
-	Width       int      `json:"width"`    // plate length(mm) * 100, defaults to 85.48mm
-	CornerX     int      `json:"corner_x"` // mm * 100 top left corner to center of well 0 along length(x)
-	CornerY     int      `json:"corner_y"` // mm * 100 top left corner to center of well 0 along width(y)
-	WellDia     int      `json:"well_dia"` // well diameter(mm) * 100
-	Cols        int      `json:"cols"`     // number of columns in plate
-	Rows        int      `json:"rows"`     // number of rows in plate
-	wells       [48]byte // set only by setWells, defaults to all wells
-	wSet        bool     // internal use, wells have been set.
-	StartCorner Corner   `json:"start_corner"` // which corner to begin measurements from
-	Uni         bool     `json:"uni"`          // read wells in only one direction then return to origin edge
-	Vert        bool     `json:"vert"`         // read vertically
-	FlyingMode  bool     `json:"flying_mode"`  // keeps stage moving, measures over well center, default off, not for abs
+	Length      int     `json:"length"`       // plate length(mm) * 100, defaults to 127.76mm
+	Width       int     `json:"width"`        // plate length(mm) * 100, defaults to 85.48mm
+	CornerX     int     `json:"corner_x"`     // mm * 100 top left corner to center of well 0 along length(x)
+	CornerY     int     `json:"corner_y"`     // mm * 100 top left corner to center of well 0 along width(y)
+	WellDia     int     `json:"well_dia"`     // well diameter(mm) * 100
+	Cols        int     `json:"cols"`         // number of columns in plate
+	Rows        int     `json:"rows"`         // number of rows in plate
+	Wells       WellCfg `json:"wells"`        // set with setWells, defaults to all wells
+	StartCorner Corner  `json:"start_corner"` // which corner to begin measurements from
+	Uni         bool    `json:"uni"`          // read wells in only one direction then return to origin edge
+	Vert        bool    `json:"vert"`         // read vertically
+	FlyingMode  bool    `json:"flying_mode"`  // keeps stage moving, measures over well center, default off, not for abs
 
 }
 type Corner uint8
@@ -57,9 +62,8 @@ func (p *PlateCfg) SetWells(idx ...int) error {
 		return fmt.Errorf("row and column count must be set")
 	}
 	for _, v := range idx {
-		p.wells[v/p.Rows] |= (1 << (7 - v%8))
+		p.Wells[v/p.Rows] |= (1 << (7 - v%8))
 	}
-	p.wSet = true
 	return nil
 }
 
@@ -86,11 +90,19 @@ func plateBytes(pl PlateCfg) ([]byte, error) {
 	cmd = binary.BigEndian.AppendUint16(cmd, uint16(pl.Width-pl.CornerY))
 	cmd = append(cmd, byte(pl.Cols), byte(pl.Rows))
 
-	cmd = append(cmd, pl.wells[:]...)
-	if !pl.wSet {
-		// read all wells in the plate
+	cmd = append(cmd, pl.Wells[:]...)
+
+	// check if wells have been set
+	s := false
+	for _, v := range pl.Wells {
+		if v != 0 {
+			s = true
+		}
+	}
+	// if not set, read all wells (for given plate)
+	if !s {
 		for i := 0; i < (pl.Cols*pl.Rows)/8; i++ {
-			pl.wells[i] = 0xff
+			pl.Wells[i] = 0xff
 		}
 	}
 

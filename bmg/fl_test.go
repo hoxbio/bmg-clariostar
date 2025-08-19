@@ -26,7 +26,7 @@ func TestFl(t *testing.T) {
 		CornerY:     1124,
 		Cols:        12,
 		Rows:        8,
-		wells:       [48]byte{0xff},
+		Wells:       [48]byte{0xff},
 		StartCorner: TopLeft,
 	}
 	fl := FlCfg{
