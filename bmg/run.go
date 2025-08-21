@@ -90,8 +90,6 @@ func plateBytes(pl PlateCfg) ([]byte, error) {
 	cmd = binary.BigEndian.AppendUint16(cmd, uint16(pl.Width-pl.CornerY))
 	cmd = append(cmd, byte(pl.Cols), byte(pl.Rows))
 
-	cmd = append(cmd, pl.Wells[:]...)
-
 	// check if wells have been set
 	s := false
 	for _, v := range pl.Wells {
@@ -105,6 +103,8 @@ func plateBytes(pl PlateCfg) ([]byte, error) {
 			pl.Wells[i] = 0xff
 		}
 	}
+
+	cmd = append(cmd, pl.Wells[:]...)
 
 	// Set the scanning mode
 	var d uint8
