@@ -139,7 +139,7 @@ func flBytes(rc RunCfg, fl FlCfg) ([]byte, error) {
 
 	// Probably something to do with the slits on the monochrometers? differ with filter measurement
 	// but not by which filter.
-	cmd = append(cmd, 0x00, 0x04, 0x00, 0x03)
+	cmd = append(cmd, 0x00, 0x04, 0x00, 0x03, 0x00)
 
 	if rc.PauseTime != 0 {
 		cmd = append(cmd, 0x01)
@@ -148,7 +148,7 @@ func flBytes(rc RunCfg, fl FlCfg) ([]byte, error) {
 	}
 	cmd = binary.BigEndian.AppendUint16(cmd, uint16(rc.PauseTime))
 
-	cmd = append(cmd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01)
+	cmd = append(cmd, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01)
 
 	cmd = binary.BigEndian.AppendUint16(cmd, uint16(fl.Flashes))
 	cmd = append(cmd, 0x00, 0x4b, 0x00, 0x00)
