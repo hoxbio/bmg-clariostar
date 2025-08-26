@@ -1,0 +1,148 @@
+// this is what I have been using in the imhex pattern editor to validate schema
+
+
+struct plate{
+    be u16 len; // long axis of plate * 100 mm 
+    be u16 width; // short axis of plate * 100 mm 
+    be u16 cornerx; // x-axis well 1 offset * 100 mm
+    be u16 cornery; // y-axis well 1 offset * 100 mm
+    be u16 dimx; // len-cornerx * 100mm
+    be u16 dimy; // width-cornery * 100mm 
+    be u8 cols; // number of columns
+    be u8 rows; // number of rows
+    be u8 wells[48]; // bitwise encoding of wells to read (up to 384) msb->lsb, row major
+};
+
+struct shake {
+    // shake enable and mode
+    // b7 - shakeMode b3
+    // b6 - shakeMode b2
+    // b5 - shakeMode b1
+    // b4 - shakeMode b0
+    // b3
+    // b2
+    // b1
+    // b0
+    //
+    // shakeMode
+    // Orbital - 0b0000
+    // Linear - 0b0001
+    // DoubleOrbital - 0b0010
+    // ShakeMeander - 0b0011
+    be u8 shk; 
+    
+    // shake rpm (n+1 * 100)
+    // 0 <= n <= 6
+    // shakeMode Meander: 0<= n <= 2
+    be u8 rpm; 
+    
+    be u16 dur; // shake duration (seconds)
+};
+
+// bit fields used to configure read direction, which optic, 
+// as well as some other nonsense
+struct opticConfig {
+    // some bitmask for fly and top/bottom optic/ read ordering
+    // b7 - uni-directional read order
+    // b6 - start corner b2
+    // b5 - start corner b1
+    // b4 - start corner b0
+    // b3 - vertical direction read order (column major)
+    // b2 - flying mode
+    // b1 - discrete measurement (not set in spectra)
+    // b0 - unknown
+    //
+    // start corner 
+    // TopLeft: 0b001
+    // TopRight: 0b011
+    // BottmLeft: 0b101
+    // BottomRight: 0b111
+    be u8 fly_optic; 
+    
+    // top vs bottom top 0x00 bottom 0x40
+    // b7 - 
+    // b6 - bottom optic en
+    // b5 - orbital averaging en
+    // b4 - orbital averaging en
+    // b3 - 
+    // b2 - 
+    // b1 - set in absorbance mode
+    // b0 - set in luminescence mode
+    be u8 optic; 
+    
+};
+
+struct config2 {
+    be u8 pause_before; // if pausing before beginning 
+    be u16 pause_time; // pause duration (seconds)
+    be u16 flashes; // Number of flasheds
+    be u8 unk4[4];
+     
+};
+
+struct fl_multichromat{
+    be u8 begin; // 0x0c
+    be u16 gain; // gain...
+    be u16 fl_h; // seems to be fl + 0.5 * bw * 10(but sometimes offset). unclear.
+    be u16 fl_l; // fl - 0.5 * bw * 10
+    be u16 dic; // dichroic wl * 10
+    be u16 ex_h; // ex + 0.5 * bw  * 10
+    be u16 ex_l; // ex - 0.5 * bw * 10
+    be u8 optics[7]; // 4 bytes seem to be for slits, then three zero bytes
+};
+
+struct fl_endpoint {
+    be u8 settling_time;
+    be u16 focal_height; // focal height * 100 mm
+    be u8 unk1[2];
+    be u8 numMultichromats;
+    be u8 unk2[5];
+    fl_multichromat multichromats[numMultichromats];
+};
+
+
+
+struct absSpectra {
+    be u8 settling_time; // 
+    
+    // num of wavelengths in discrete abs (zero in spectrum)
+    // each additional wavelengths lengthens msg by 2 bytes
+    be u8 wavelengths; 
+    
+    // spectrum
+    be u16 start; // start wavelength (nm)
+    be u16 stop; // end wavelength (nm)
+    be u16 stepSz; // step size (nm*10)
+    
+    be u8 optics[14]; 
+     
+};
+    
+struct flmsg{
+    be u8 run; // 0x04 for run commands
+    plate;
+    opticConfig;
+    be u8 unk1[3];
+    shake;
+    be u8 unk2[4];
+    fl_endpoint;
+    be u8 tbd[10]; // probably pump stuff
+    config2;
+
+};
+
+struct absmsg{
+    be u8 run; // 0x04 for run commands
+    plate;
+    opticConfig;
+    be u8 unk1[3];
+    shake;
+    be u8 unk2[4];
+    absSpectra;
+    be u8 tbd[10];
+    config2;
+    
+
+};
+
+absmsg my @0x04;
